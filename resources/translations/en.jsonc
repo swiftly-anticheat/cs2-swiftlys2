@@ -1,3 +1,7 @@
 {
-  "hello": "world"
+    "gameevents.name": "Game Events",
+    "notifications.chat.ban": "Player [lightred]{0}[default] has been banned for [lightred]{1}[default].",
+    "notifications.chat.kick": "Player [lightred]{0}[default] has been kicked for [lightred]{1}[default].",
+    "notifications.chat.bypass": "Player [lightred]{0}[default] has been detected for [lightred]{1}[default] but has bypass.",
+    "notifications.chat.details": "Details: {0}",
 }

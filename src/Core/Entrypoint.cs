@@ -3,6 +3,9 @@ using SwiftlyS2.Shared.Plugins;
 using SwiftlyS2.Shared;
 using Microsoft.Extensions.Configuration;
 using SwiftlyAC.Services.Sanction;
+using SwiftlyAC.Services.GameEvents;
+using SwiftlyAC.Services.Notifications;
+using SwiftlyAC.Services.ConVars;
 
 namespace SwiftlyAC;
 
@@ -28,13 +31,29 @@ public partial class SwiftlyAC : BasePlugin {
         ServiceCollection services = new();
 
         services.AddSwiftly(Core)
-            .AddSingleton<SanctionService>();
+            .AddSingleton<SanctionService>()
+            .AddSingleton<GameEventsService>()
+            .AddSingleton<NotificationsService>()
+            .AddSingleton<ConVarsService>()
+            .AddOptionsWithValidateOnStart<Configuration>().BindConfiguration("Main");
 
         _serviceProvider = services.BuildServiceProvider();
 
+        //////////////////////////////////////////////////////////////////////
+        _ = _serviceProvider.GetRequiredService<NotificationsService>();
         _ = _serviceProvider.GetRequiredService<SanctionService>();
+
+        //////////////////////////////////////////////////////////////////////
+        _ = _serviceProvider.GetRequiredService<GameEventsService>();
+        _ = _serviceProvider.GetRequiredService<ConVarsService>();
     }
 
-    public override void Unload() {
+    public override void Unload()
+    {
+        if(_serviceProvider != null)
+        {
+            _serviceProvider.Dispose();
+            _serviceProvider = null;
+        }
     }
 } 
