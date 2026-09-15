@@ -6,7 +6,6 @@ public class GameEventsConfiguration
     public string CheckInterval { get; set; } = "1m";
     public string DelayInterval { get; set; } = "15s";
     
-    public bool DebugLogs { get; set; } = false;
     public List<string> BlacklistedGameEvents { get; set; } = [
         "gameui_hidden",
 		"player_chat",
