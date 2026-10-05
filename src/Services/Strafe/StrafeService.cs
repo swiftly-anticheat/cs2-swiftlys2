@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+
 using Microsoft.Extensions.Options;
 using SwiftlyAC.Services.Sanction;
 using SwiftlyS2.Shared;
@@ -9,39 +9,10 @@ namespace SwiftlyAC.Services.Strafe;
 
 internal class StrafeService : IDisposable
 {
-    private const int MaxFrames = 12;
-
-    private struct Frame
-    {
-        public float Yaw;
-        public float FrameTime;
-    }
-
-    private sealed class PlayerState
-    {
-        public readonly Frame[] Frames = new Frame[MaxFrames];
-        public int Start;
-        public int Count;
-        public float YawAccelPercent;
-
-        public ref Frame this[int index] => ref Frames[(Start + index) % MaxFrames];
-
-        public void Push(float yaw, float frameTime)
-        {
-            if (Count < MaxFrames)
-                Count++;
-            else
-                Start = (Start + 1) % MaxFrames;
-            this[Count - 1] = new Frame { Yaw = yaw, FrameTime = frameTime };
-        }
-    }
-
     private ISwiftlyCore _core { get; init; }
     private SanctionService _sanctionService { get; init; }
     private StrafeConfiguration _config;
     private bool _disposed = false;
-
-    private readonly ConcurrentDictionary<ulong, PlayerState> _states = new();
 
     public StrafeService(ISwiftlyCore core, IOptionsMonitor<Configuration> config, SanctionService sanctionService)
     {
@@ -64,24 +35,6 @@ internal class StrafeService : IDisposable
         }
     }
 
-    [EventListener<EventDelegates.OnClientPutInServer>]
-    public void OnClientPutInServer(IOnClientPutInServerEvent @ctx)
-    {
-        var player = _core.PlayerManager.GetPlayer(@ctx.PlayerId);
-        if (player == null) return;
-
-        _states.TryRemove(player.SteamID, out _);
-    }
-
-    [EventListener<EventDelegates.OnClientDisconnected>]
-    public void OnClientDisconnected(IOnClientDisconnectedEvent @ctx)
-    {
-        var player = _core.PlayerManager.GetPlayer(@ctx.PlayerId);
-        if (player == null) return;
-
-        _states.TryRemove(player.SteamID, out _);
-    }
-
     private void OnProcessUsercmdsPre(ref ProcessUsercmdsPreContext ctx)
     {
         if (!_config.Enabled) return;
@@ -89,8 +42,7 @@ internal class StrafeService : IDisposable
         var player = ctx.Params.Player;
         if (!player.IsValid || player.IsFakeClient) return;
 
-        if (!_states.TryGetValue(player.SteamID, out var state))
-            state = _states.GetOrAdd(player.SteamID, static _ => new PlayerState());
+        var state = player.AcData.Strafe;
 
         var frameTime = _core.Engine.GlobalVars.FrameTime;
         var usercmds = ctx.Params.Usercmds;
@@ -107,7 +59,7 @@ internal class StrafeService : IDisposable
         }
     }
 
-    private bool DetectOptimization(PlayerState state, float yaw, float frameTime)
+    private bool DetectOptimization(StrafeData state, float yaw, float frameTime)
     {
         state.Push(yaw, frameTime);
 
@@ -135,7 +87,7 @@ internal class StrafeService : IDisposable
         return state.YawAccelPercent > _config.YawAccelPercentThreshold;
     }
 
-    private static float YawSpeed(PlayerState state, int index)
+    private static float YawSpeed(StrafeData state, int index)
     {
         if (index == 0) return 0f;
 
@@ -145,7 +97,7 @@ internal class StrafeService : IDisposable
         return diff / state[index].FrameTime;
     }
 
-    private static float YawAccel(PlayerState state, int index)
+    private static float YawAccel(StrafeData state, int index)
     {
         if (index < 2) return 0f;
         return (YawSpeed(state, index) - YawSpeed(state, index - 1)) / state[index].FrameTime;

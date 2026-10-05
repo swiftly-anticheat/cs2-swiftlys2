@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+
 using Microsoft.Extensions.Options;
 using SwiftlyAC.Services.Sanction;
 using SwiftlyS2.Shared;
@@ -41,21 +41,11 @@ internal class SubtickService : IDisposable
         public float Side;
     }
 
-    private sealed class PlayerState
-    {
-        public readonly Queue<double> InvalidCommands = new();
-        public readonly Queue<double> SuspiciousMoves = new();
-        public readonly Queue<double> CommandsWithSubtick = new();
-        public readonly Queue<double> ZeroWhenCommands = new();
-    }
-
     private ISwiftlyCore _core { get; init; }
     private SanctionService _sanctionService { get; init; }
     private SubtickConfiguration _config;
     private CancellationTokenSource? _cancellationTokenSource;
     private bool _disposed = false;
-
-    private readonly ConcurrentDictionary<ulong, PlayerState> _states = new();
 
     public SubtickService(ISwiftlyCore core, IOptionsMonitor<Configuration> config, SanctionService sanctionService)
     {
@@ -82,24 +72,6 @@ internal class SubtickService : IDisposable
 
     private static double Now => Environment.TickCount64 / 1000.0;
 
-    [EventListener<EventDelegates.OnClientPutInServer>]
-    public void OnClientPutInServer(IOnClientPutInServerEvent @ctx)
-    {
-        var player = _core.PlayerManager.GetPlayer(@ctx.PlayerId);
-        if (player == null) return;
-
-        _states.TryRemove(player.SteamID, out _);
-    }
-
-    [EventListener<EventDelegates.OnClientDisconnected>]
-    public void OnClientDisconnected(IOnClientDisconnectedEvent @ctx)
-    {
-        var player = _core.PlayerManager.GetPlayer(@ctx.PlayerId);
-        if (player == null) return;
-
-        _states.TryRemove(player.SteamID, out _);
-    }
-
     private void OnProcessUsercmdsPre(ref ProcessUsercmdsPreContext ctx)
     {
         if (!_config.Enabled) return;
@@ -107,8 +79,7 @@ internal class SubtickService : IDisposable
         var player = ctx.Params.Player;
         if (!player.IsValid || player.IsFakeClient) return;
 
-        if (!_states.TryGetValue(player.SteamID, out var state))
-            state = _states.GetOrAdd(player.SteamID, static _ => new PlayerState());
+        var state = player.AcData.Subtick;
 
         var impulses = new Impulses();
         var usercmds = ctx.Params.Usercmds;
@@ -116,7 +87,7 @@ internal class SubtickService : IDisposable
             CheckCommand(state, player, usercmds[i].CSGOUserCmd, ref impulses);
     }
 
-    private void CheckCommand(PlayerState state, IPlayer player, CSGOUserCmdPB userCmd, ref Impulses impulses)
+    private void CheckCommand(SubtickData state, IPlayer player, CSGOUserCmdPB userCmd, ref Impulses impulses)
     {
         var baseCmd = userCmd.Base;
         var moves = baseCmd.SubtickMoves;
@@ -255,13 +226,13 @@ internal class SubtickService : IDisposable
         {
             if (player.IsFakeClient) continue;
             if (player.ConnectedTime < _config.InitialIgnoreTime) continue;
-            if (!_states.TryGetValue(player.SteamID, out var state)) continue;
+            var state = player.AcData.Subtick;
 
             lock (state) CheckPlayer(player, state, now);
         }
     }
 
-    private void CheckPlayer(IPlayer player, PlayerState state, double now)
+    private void CheckPlayer(IPlayer player, SubtickData state, double now)
     {
         Prune(state.InvalidCommands, now, _config.InvalidCommandWindow);
         if (state.InvalidCommands.Count >= _config.InvalidCommandThreshold)
