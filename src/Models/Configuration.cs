@@ -3,6 +3,7 @@ using SwiftlyAC.Services.GameEvents;
 using SwiftlyAC.Services.Notifications;
 using SwiftlyAC.Services.ConVars;
 using SwiftlyAC.Services.Subtick;
+using SwiftlyAC.Services.Strafe;
 
 public class Configuration
 {
@@ -12,4 +13,5 @@ public class Configuration
     public NotificationsConfiguration Notifications {get;set;} = new();
     public ConVarsConfiguration ConVars {get;set;} = new();
     public SubtickConfiguration Subtick {get;set;} = new();
+    public StrafeConfiguration Strafe {get;set;} = new();
 }

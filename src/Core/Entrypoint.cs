@@ -7,6 +7,7 @@ using SwiftlyAC.Services.GameEvents;
 using SwiftlyAC.Services.Notifications;
 using SwiftlyAC.Services.ConVars;
 using SwiftlyAC.Services.Subtick;
+using SwiftlyAC.Services.Strafe;
 
 namespace SwiftlyAC;
 
@@ -37,6 +38,7 @@ public partial class SwiftlyAC : BasePlugin {
             .AddSingleton<NotificationsService>()
             .AddSingleton<ConVarsService>()
             .AddSingleton<SubtickService>()
+            .AddSingleton<StrafeService>()
             .AddOptionsWithValidateOnStart<Configuration>().BindConfiguration("Main");
 
         _serviceProvider = services.BuildServiceProvider();
@@ -49,6 +51,7 @@ public partial class SwiftlyAC : BasePlugin {
         _ = _serviceProvider.GetRequiredService<GameEventsService>();
         _ = _serviceProvider.GetRequiredService<ConVarsService>();
         _ = _serviceProvider.GetRequiredService<SubtickService>();
+        _ = _serviceProvider.GetRequiredService<StrafeService>();
     }
 
     public override void Unload()
